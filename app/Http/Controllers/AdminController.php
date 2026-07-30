@@ -338,6 +338,24 @@ class AdminController extends Controller
 
         if ($filter === 'lulus') {
             $predictions = $predictions->where('hasil_prediksi', 'Lulus 3,5 Tahun');
+        } elseif ($filter === 'semua') {
+            // Ambil SEMUA mahasiswa, termasuk yang belum punya prediksi
+            $allMahasiswa = User::where('role', 'mahasiswa')->get();
+            $predictions = $allMahasiswa->map(function ($user) use ($latestIds) {
+                $pred = PredictionResult::where('user_id', $user->id)
+                    ->whereIn('id', $latestIds)
+                    ->first();
+                if ($pred) return $pred;
+
+                // Placeholder untuk mahasiswa belum input
+                $obj = new \stdClass();
+                $obj->user = $user;
+                $obj->total_cf_score = null;
+                $obj->persentase_keyakinan = null;
+                $obj->hasil_prediksi = 'Belum Input';
+                $obj->tanggal_prediksi = null;
+                return $obj;
+            })->sortBy(function ($p) { return strtolower($p->user->name); })->values();
         } elseif ($filter === 'tidak-lulus') {
             // Ambil prediksi dengan hasil tidak lulus
             $tidakLulusPred = $predictions->where('hasil_prediksi', 'Tidak Lulus 3,5 Tahun');
