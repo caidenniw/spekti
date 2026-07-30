@@ -339,16 +339,49 @@ class AdminController extends Controller
         if ($filter === 'lulus') {
             $predictions = $predictions->where('hasil_prediksi', 'Lulus 3,5 Tahun');
         } elseif ($filter === 'tidak-lulus') {
-            $predictions = $predictions->where('hasil_prediksi', 'Tidak Lulus 3,5 Tahun');
+            // Ambil prediksi dengan hasil tidak lulus
+            $tidakLulusPred = $predictions->where('hasil_prediksi', 'Tidak Lulus 3,5 Tahun');
+
+            // Ambil juga mahasiswa yang gagal pre-screening (nilai C/D/E)
+            // Mereka tidak punya prediction_result, tapi harus muncul di rekap tidak lulus
+            $preScreenRejects = PreScreening::with('user')
+                ->where('nilai_ab_only', false)
+                ->get()
+                ->map(function ($ps) {
+                    $obj = new \stdClass();
+                    $obj->user = $ps->user;
+                    $obj->total_cf_score = null;
+                    $obj->persentase_keyakinan = null;
+                    $obj->hasil_prediksi = 'Tidak Lulus 3,5 Tahun';
+                    $obj->tanggal_prediksi = $ps->created_at;
+                    return $obj;
+                });
+
+            // Hindari duplikasi: lewati user yang sudah ada di tidakLulusPred
+            $existingUserIds = $tidakLulusPred->pluck('user_id')->toArray();
+            $additionalRejects = $preScreenRejects->reject(function ($r) use ($existingUserIds) {
+                return in_array($r->user->id, $existingUserIds);
+            });
+
+            // Gabung dan urutkan berdasarkan nama
+            $predictions = $tidakLulusPred->concat($additionalRejects)
+                ->sortBy(function ($p) { return $p->user->name; })
+                ->values();
         }
 
         $totalMahasiswa = User::role('mahasiswa')->count();
         $lulusCount = PredictionResult::whereIn('id', $latestIds)
             ->where('hasil_prediksi', 'Lulus 3,5 Tahun')
             ->count();
-        $tidakLulusCount = PredictionResult::whereIn('id', $latestIds)
+
+        // Tidak lulus = prediksi tidak lulus + gagal pre-screening (user unik)
+        $tidakLulusUserIds = PredictionResult::whereIn('id', $latestIds)
             ->where('hasil_prediksi', 'Tidak Lulus 3,5 Tahun')
-            ->count();
+            ->pluck('user_id')
+            ->merge(
+                PreScreening::where('nilai_ab_only', false)->pluck('user_id')
+            )->unique();
+        $tidakLulusCount = $tidakLulusUserIds->count();
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.rekap', compact(
             'predictions', 'filter', 'totalMahasiswa', 'lulusCount', 'tidakLulusCount'

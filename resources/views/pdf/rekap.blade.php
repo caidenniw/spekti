@@ -319,14 +319,14 @@
             <td>{{ $pred->user->name }}</td>
             <td>{{ $pred->user->username_nim }}</td>
             <td style="text-align:center;">{{ $pred->user->angkatan }}</td>
-            <td style="text-align:center;">{{ number_format($pred->total_cf_score, 4) }}</td>
-            <td style="text-align:center;">{{ $pred->persentase_keyakinan }}%</td>
+            <td style="text-align:center;">{{ $pred->total_cf_score ? number_format($pred->total_cf_score, 4) : '-' }}</td>
+            <td style="text-align:center;">{{ $pred->persentase_keyakinan ? $pred->persentase_keyakinan . '%' : '-' }}</td>
             <td>
                 <span class="badge {{ $pred->hasil_prediksi === 'Lulus 3,5 Tahun' ? 'lulus' : 'tidak-lulus' }}">
                     {{ $pred->hasil_prediksi === 'Lulus 3,5 Tahun' ? 'Lulus' : 'Tidak Lulus' }}
                 </span>
             </td>
-            <td style="text-align:center;">{{ $pred->tanggal_prediksi->format('d/m/Y') }}</td>
+            <td style="text-align:center;">{{ $pred->tanggal_prediksi ? $pred->tanggal_prediksi->format('d/m/Y') : '-' }}</td>
         </tr>
         @endforeach
     </table>
