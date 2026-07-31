@@ -4,7 +4,9 @@
 
 **SpekTi** adalah sistem pakar berbasis web untuk memprediksi peluang kelulusan mahasiswa Program Studi Pendidikan Teknik Informatika dan Komputer (PTIK) dalam waktu 3,5 tahun (7 semester). Sistem menggunakan metode **Certainty Factor (CF)** untuk mengolah ketidakpastian dalam pengambilan keputusan akademik.
 
-Dibangun dengan **Laravel 12** (PHP) + **MySQL** + **Bootstrap CDN**. Berjalan di server lokal menggunakan **Laragon**.
+Dibangun dengan **Laravel 12** (PHP) + **MySQL** + **Bootstrap CDN**. Berjalan di server lokal menggunakan **Laragon** dan sudah di-hosting di **Railway** (https://web-production-8e843.up.railway.app).
+
+**Alur penggunaan:** mahasiswa mengisi **Pre-Screening** (cek kelayakan nilai) → jika lolos, mengisi **Kuesioner CF** → sistem menghitung prediksi kelulusan 3,5 tahun → admin dapat melihat rekap dan menyetujui/menolak revisi.
 
 ---
 
@@ -15,21 +17,22 @@ spekti/
 │
 ├── app/                                  ← Kode PHP utama (MVC)
 │   ├── Http/
-│   │   ├── Controllers/
-│   │   │   ├── AdminController.php       ← CRUD Rules + CRUD Mahasiswa + Dashboard + Revisi + Export
-│   │   │   ├── AuthController.php        ← Login, Register, Logout
-│   │   │   ├── Controller.php            ← Base controller (default Laravel)
-│   │   │   ├── StudentController.php     ← Kuesioner, Prediksi, Hasil, Riwayat, Export PDF, Request Edit
-│   │   │   └── VariableController.php    ← CRUD Variabel Kuesioner (dinamis via DB)
+│   ├── Controllers/
+│   │   ├── AdminController.php       ← CRUD Rules + CRUD Mahasiswa + Dashboard + Revisi + Export + Pre-Screening admin
+│   │   ├── AuthController.php        ← Login, Register, Logout
+│   │   ├── Controller.php            ← Base controller (default Laravel)
+│   │   ├── StudentController.php     ← Pre-Screening, Kuesioner, Prediksi, Hasil, Riwayat, Export PDF, Request Edit
+│   │   └── VariableController.php    ← CRUD Variabel Kuesioner (dinamis via DB)
 │   │   └── Middleware/
-│   │       └── RoleMiddleware.php        ← Otorisasi berdasarkan role (admin/mahasiswa)
+│   │       └── RoleMiddleware.php    ← Otorisasi berdasarkan role (admin/mahasiswa)
 │   ├── Models/
-│   │   ├── User.php                      ← Model user (admin/mahasiswa)
-│   │   ├── Rule.php                      ← Model rule CF (49 rules)
-│   │   ├── StudentVariable.php           ← Model input kuesioner mahasiswa
-│   │   ├── StudentAnswer.php             ← Model CF User per variabel
-│   │   ├── PredictionResult.php          ← Model hasil prediksi (+ status approval)
-│   │   └── Variable.php                  ← Model konfigurasi variabel kuesioner (CRUD dinamis)
+│   │   ├── User.php                  ← Model user (admin/mahasiswa)
+│   │   ├── Rule.php                  ← Model rule CF (49 rules)
+│   │   ├── StudentVariable.php       ← Model input kuesioner mahasiswa
+│   │   ├── StudentAnswer.php         ← Model CF User per variabel
+│   │   ├── PredictionResult.php      ← Model hasil prediksi (+ status approval)
+│   │   ├── PreScreening.php          ← Model pre-screening (gate kelayakan nilai)
+│   │   └── Variable.php              ← Model konfigurasi variabel kuesioner (CRUD dinamis)
 │   ├── Providers/
 │   │   └── AppServiceProvider.php        ← Config: Pagination Bootstrap 5
 │   └── Services/
@@ -41,7 +44,7 @@ spekti/
 │   └── ...
 │
 ├── database/
-│   ├── migrations/                       ← Struktur database (11 file migrasi)
+│   ├── migrations/                       ← Struktur database (15 file migrasi)
 │   │   ├── 0001_01_01_000000_create_users_table.php
 │   │   ├── 0001_01_01_000001_create_cache_table.php
 │   │   ├── 0001_01_01_000002_create_jobs_table.php
@@ -54,7 +57,9 @@ spekti/
 │   │   ├── 2026_07_02_000003_create_student_answers_table.php
 │   │   ├── 2026_07_18_000001_add_revision_fields_to_prediction_results.php
 │   │   ├── 2026_07_18_000002_add_revision_rejected_to_prediction_results.php
-│   │   └── 2026_07_18_000003_create_variables_table.php
+│   │   ├── 2026_07_18_000003_create_variables_table.php
+│   │   ├── 2026_07_21_190202_create_pre_screenings_table.php
+│   │   └── 2026_07_22_162838_add_description_to_variables_table.php
 │   └── seeders/
 │       ├── DatabaseSeeder.php            ← Master seeder
 │       ├── UserSeeder.php                ← Seed 1 admin + 4 sample mahasiswa
@@ -90,10 +95,12 @@ spekti/
 │       │       ├── create.blade.php      ← Form tambah variabel
 │       │       └── edit.blade.php        ← Form edit variabel
 │       ├── mahasiswa/
-│       │   ├── dashboard.blade.php       ← Dashboard mahasiswa
-│       │   ├── kuesioner.blade.php       ← Form 7 variabel + CF User
-│       │   ├── hasil.blade.php           ← Hasil prediksi + rules + saran
-│       │   └── riwayat.blade.php         ← Riwayat semua prediksi
+│       ├── dashboard.blade.php       ← Dashboard mahasiswa
+│       ├── prescreening.blade.php    ← Form pre-screening (kelayakan nilai A/B)
+│       ├── prescreening-rejected.blade.php ← Halaman nilai C/D/E (tidak lanjut kuesioner)
+│       ├── kuesioner.blade.php       ← Form 7 variabel + CF User
+│       ├── hasil.blade.php           ← Hasil prediksi + rules + saran
+│       └── riwayat.blade.php         ← Riwayat semua prediksi
 │       └── pdf/
 │           ├── prediksi.blade.php        ← Template PDF laporan individu
 │           └── rekap.blade.php           ← Template PDF rekap seluruh mahasiswa
@@ -124,7 +131,7 @@ spekti/
 | -------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------- |
 | `AuthController`     | Login (NIM + password), Register mahasiswa baru, Logout                                                 | `/login`, `/register`, `/logout` |
 | `AdminController`    | Dashboard analitik, CRUD Rules (49 rules), CRUD Mahasiswa, Approval Revisi, Export PDF individu & rekap | `/admin/*`                       |
-| `StudentController`  | Dashboard, Form kuesioner, Proses prediksi, Hasil, Riwayat, Export PDF, Request Edit                    | `/mahasiswa/*`                   |
+| `StudentController`  | Dashboard, Pre-Screening, Form kuesioner, Proses prediksi, Hasil, Riwayat, Export PDF, Request Edit                    | `/mahasiswa/*`                   |
 | `VariableController` | CRUD variabel kuesioner (dinamis — dikelola lewat UI admin)                                             | `/admin/variables/*`             |
 
 ### Models
@@ -136,7 +143,8 @@ spekti/
 | `StudentVariable`  | `student_variables`  | Input 7 variabel kuesioner dari mahasiswa                                         |
 | `StudentAnswer`    | `student_answers`    | CF User per variabel (keyakinan mahasiswa 1.0/0.8/0.6/0.4/0.2)                    |
 | `PredictionResult` | `prediction_results` | Hasil prediksi (CF score, persentase, status, revision fields)                    |
-| `Variable`         | `variables`          | Konfigurasi dinamis variabel kuesioner (label, opsi positif/negatif)              |
+| `PreScreening`     | `pre_screenings`     | Hasil pre-screening mahasiswa (nilai_ab_only true/false)                          |
+| `Variable`         | `variables`          | Konfigurasi dinamis variabel kuesioner (label, opsi positif/negatif, description) |
 
 ### CFEngineService (Mesin Utama)
 
@@ -145,6 +153,13 @@ Ini adalah **jantung sistem** — file `CFEngineService.php`.
 ```
 Alur Kerja:
 ─────────────────────────────────────────
+
+0. Pre-Screening (gate awal, SEBELUM kuesioner)
+   ├── Mahasiswa pilih: "Seluruh nilai A/B" atau "Ada nilai C/D/E"
+   ├── Jika A/B saja → disimpan ke pre_screenings (nilai_ab_only = true)
+   │   → lanjut ke kuesioner (langkah 1)
+   └── Jika ada C/D/E → disimpan (nilai_ab_only = false)
+       → tampil halaman "Tidak Memenuhi Syarat" → TIDAK bisa kuesioner
 
 1. Mahasiswa isi kuesioner
    ├── Pilih status 7 variabel (tinggi/rendah, lancar/terlambat, dll)
@@ -206,12 +221,13 @@ Alur Kerja:
 
 > **Catatan:** Kolom `mb` dan `md` sudah dihapus (migrasi `remove_mb_md_from_rules_table`). CF_Pakar langsung dari skala keyakinan pakar.
 
-### Tabel `variables` (BARU — 18 Juli)
+### Tabel `variables` (BARU — 18 Juli, + description 22 Juli)
 
 | Kolom         | Tipe                  | Keterangan                                     |
 | ------------- | --------------------- | ---------------------------------------------- |
 | id            | BIGINT AUTO_INCREMENT | ID unik                                        |
 | label         | VARCHAR(255)          | Nama tampilan variabel                         |
+| description   | TEXT NULL             | Deskripsi/penjelasan variabel (baru 22 Juli)   |
 | variable_name | VARCHAR(255) UNIQUE   | Key internal (ipk_status, skripsi_status, dsb) |
 | positif_value | VARCHAR(255)          | Value opsi positif (tinggi, lancar, dsb)       |
 | positif_label | VARCHAR(255)          | Label opsi positif                             |
@@ -220,6 +236,18 @@ Alur Kerja:
 | urutan        | INT                   | Urutan tampil di form                          |
 | created_at    | TIMESTAMP             | Waktu dibuat                                   |
 | updated_at    | TIMESTAMP             | Waktu update                                   |
+
+### Tabel `pre_screenings` (BARU — 21 Juli)
+
+| Kolom         | Tipe                  | Keterangan                                            |
+| ------------- | --------------------- | ----------------------------------------------------- |
+| id            | BIGINT AUTO_INCREMENT | ID unik                                               |
+| user_id       | BIGINT FK → users.id  | Mahasiswa (onDelete cascade)                          |
+| nilai_ab_only | BOOLEAN               | true = seluruh nilai A/B, false = ada nilai C/D/E     |
+| created_at    | TIMESTAMP             | Waktu input                                           |
+| updated_at    | TIMESTAMP             | Waktu update                                          |
+
+> **Fungsi:** gate kelayakan — mahasiswa yang punya nilai C/D/E TIDAK bisa mengisi kuesioner prediksi (halaman `prescreening-rejected`).
 
 ### Tabel `student_variables`
 
@@ -273,12 +301,16 @@ Alur Kerja:
 users (admin/mahasiswa)
   ├── student_variables.user_id → users.id (satu mahasiswa banyak input kuesioner)
   ├── prediction_results.user_id → users.id (satu mahasiswa banyak prediksi)
+  ├── pre_screenings.user_id → users.id (satu mahasiswa satu pre-screening)
   │
   └── student_answers (melalui student_variables)
 
 student_variables (input kuesioner)
   ├── student_answers.student_variable_id → student_variables.id
   └── prediction_results.student_variable_id → student_variables.id
+
+pre_screenings (gate kelayakan)
+  └── user_id → users.id (onDelete cascade)
 
 rules (knowledge base — standalone)
   └── Tidak ada FK (di-read oleh CFEngineService saat prediksi)
@@ -340,8 +372,10 @@ php artisan storage:link
 Ini akan:
 
 - Membuat database `spekti_db`
-- Membuat semua tabel
+- Membuat semua tabel (termasuk `pre_screenings` dan kolom `description` di `variables`)
 - Insert data: 1 admin, 4 sample mahasiswa, 49 rules, 7 variabel
+
+> **Catatan:** Di produksi Railway, data yang aktif adalah data asli client (52 mahasiswa) — bukan data seeder. Seeder hanya untuk pengembangan lokal.
 
 ### 6. Jalankan Server
 
@@ -353,17 +387,31 @@ Buka: `http://localhost:8000` atau `http://spekti.test` (via Laragon)
 
 ---
 
+## Hosting (Railway)
+
+- **URL aplikasi:** https://web-production-8e843.up.railway.app
+- **Platform:** Railway (free tier)
+- **Stack produksi:** Laravel 12 + MySQL (plugin Railway) + Nixpacks build
+- **Database produksi:** database `railway` (bukan `spekti_db`), diakses via variabel `MYSQL_URL` pada service web
+- **Environment variables (4):** `APP_KEY`, `APP_URL`, `DB_CONNECTION=mysql`, `MYSQL_URL`
+- **Migrasi & seed produksi:** dijalankan manual via Console Railway:
+  ```
+  php artisan migrate --force
+  php artisan db:seed --force
+  ```
+- **Import data client:** file `database/spekti_db.sql` diimport langsung ke database `railway` (via TablePlus atau `mysql` CLI)
+
+> **Peringatan:** jangan import dump yang berisi `CREATE DATABASE`/`USE spekti_db` — bisa membuat data masuk ke database yang salah. Dump `spekti_db.sql` di folder `database/` sudah aman (tanpa USE).
+
+---
+
 ## Akun Default
 
 | Role      | NIM/Username | Password |
 | --------- | ------------ | -------- |
 | Admin     | admin        | password |
-| Mahasiswa | 2022001      | password |
-| Mahasiswa | 2022002      | password |
-| Mahasiswa | 2023001      | password |
-| Mahasiswa | 2023002      | password |
 
-> **Catatan:** Dummy data mahasiswa (50 mahasiswa) sudah dihapus. Admin harus membuat data mahasiswa manual lewat panel admin.
+> **Catatan:** Data mahasiswa di produksi adalah data asli client (52 mahasiswa) dari database lokal `spekti_db` — akun mahasiswa sesuai NIM masing-masing (password default sesuai yang dibuat client). Seeder lokal hanya berisi sample (4 mahasiswa) untuk pengembangan. Admin harus membuat data mahasiswa manual lewat panel admin.
 
 ---
 
@@ -372,7 +420,7 @@ Buka: `http://localhost:8000` atau `http://spekti.test` (via Laragon)
 ### Alur Login
 
 ```
-1. User buka http://spekti.test → redirect ke /login
+1. User buka https://web-production-8e843.up.railway.app → redirect ke /login
 2. Input NIM/Username + Password
 3. Sistem cek ke database (bcrypt verify)
 4. Jika cocok → set session + redirect berdasarkan role:
@@ -381,10 +429,27 @@ Buka: `http://localhost:8000` atau `http://spekti.test` (via Laragon)
 5. Jika salah → error "NIM atau Password salah"
 ```
 
+### Alur Pre-Screening (Mahasiswa — gate awal)
+
+```
+1. Mahasiswa login → dashboard → klik "Pre-Screening"
+2. Sistem cek apakah sudah pernah isi pre-screening:
+   ├── Belum pernah → tampil form
+   └── Sudah pernah:
+       ├── nilai_ab_only = true → langsung redirect ke kuesioner
+       └── nilai_ab_only = false → tampil halaman ditolak (prescreening-rejected)
+3. Mahasiswa pilih salah satu:
+   ├── "Seluruh nilai A/B" → nilai_ab_only = true
+   └── "Ada nilai C/D/E" → nilai_ab_only = false
+4. Sistem simpan ke pre_screenings (sekali, anti double-submit)
+5. Jika A/B saja → redirect ke kuesioner
+   Jika ada C/D/E → halaman "Tidak Memenuhi Syarat" (tidak bisa kuesioner)
+```
+
 ### Alur Prediksi (Mahasiswa)
 
 ```
-1. Mahasiswa klik menu "Kuesioner"
+1. Mahasiswa (yang lolos pre-screening) klik menu "Kuesioner"
 2. Form 7 variabel muncul:
    ├── IPK: Tinggi / Rendah
    ├── Skripsi: Lancar / Terlambat
@@ -446,6 +511,17 @@ Buka: `http://localhost:8000` atau `http://spekti.test` (via Laragon)
    └── Status Prediksi (Lulus / Tidak Lulus)
 ```
 
+### Alur Admin Kelola Pre-Screening
+
+```
+1. Admin buka menu "Pre-Screening" (atau "Ditolak Screening")
+2. Lihat daftar mahasiswa yang sudah isi pre-screening:
+   ├── Lolos (nilai A/B saja) → status lolos
+   └── Ditolak (ada C/D/E) → status ditolak
+3. Admin bisa export PDF per mahasiswa (hasil pre-screening)
+4. Mahasiswa yang ditolak TETAP muncul di rekap PDF "Tidak Lulus" (tanpa nilai CF)
+```
+
 ### Alur Admin Kelola Variabel
 
 ```
@@ -454,6 +530,7 @@ Buka: `http://localhost:8000` atau `http://spekti.test` (via Laragon)
 3. Bisa: Tambah, Edit, Hapus variabel
 4. Form variabel:
    ├── Label (nama tampilan)
+   ├── Description (penjelasan variabel — tampil di form kuesioner)
    ├── Variable Name (key internal)
    ├── Opsi Positif (value + label)
    ├── Opsi Negatif (value + label)
@@ -536,15 +613,17 @@ Buka: `http://localhost:8000` atau `http://spekti.test` (via Laragon)
 
 - Dashboard analitik (total mahasiswa, rules, prediksi, persentase lulus, per angkatan)
 - CRUD Rules Knowledge Base (49 rules)
-- CRUD Variabel Kuesioner (7 variabel dinamis)
+- CRUD Variabel Kuesioner (7 variabel dinamis, + description)
 - CRUD Data Mahasiswa (tambah, edit, hapus)
 - Detail riwayat prediksi per mahasiswa + export PDF individu
 - Export rekap PDF seluruh mahasiswa (filter: semua/lulus/tidak lulus)
+- **Pre-Screening admin** — lihat status lolos/ditolak + export PDF per mahasiswa
 - Approval/reject permintaan revisi prediksi dari mahasiswa
 
 ### Mahasiswa
 
 - Dashboard ringkasan
+- **Pre-Screening** (gate kelayakan nilai — wajib sebelum kuesioner)
 - Form kuesioner (7 variabel + CF User) — one prediction
 - Lihat hasil prediksi (persentase, rules match, saran)
 - Ajukan permintaan revisi data prediksi
@@ -565,6 +644,7 @@ Buka: `http://localhost:8000` atau `http://spekti.test` (via Laragon)
 | Icons      | Bootstrap Icons                                   |
 | Template   | Blade Laravel                                     |
 | Server     | Laragon (Apache + MySQL) atau `php artisan serve` |
+| Hosting    | Railway (Nixpacks + MySQL plugin)                 |
 
 ---
 
@@ -583,4 +663,7 @@ Buka: `http://localhost:8000` atau `http://spekti.test` (via Laragon)
 11. **Data dummy dihapus** — `MahasiswaDummySeeder` (50 mahasiswa) sudah dihapus. Admin input manual
 12. **Storage link** — sudah dibuat (`public/storage` → `storage/app/public`)
 13. **TTD PDF** — menggunakan `public/images/ttd-ketua-prodi.jpg` dan `public/images/logo-uin.jpg`
-14. **No git repo** — backup manual
+14. **Pre-Screening** — mahasiswa dengan nilai C/D/E tidak bisa mengisi kuesioner (gate di `StudentController@prosesPreScreening`)
+15. **Rekap "Tidak Lulus"** — menampilkan gabungan prediction_results (CF Tidak Lulus) + pre_screenings ditolak (tanpa nilai CF, kolom ditampilkan `-`)
+16. **Hosting Railway** — web production terhubung ke database `railway` via `MYSQL_URL`; import data client via `database/spekti_db.sql`
+17. **No git repo** — backup manual (folder `database/spekti_db.sql` + `docs/`)
