@@ -16,6 +16,7 @@ class Variable extends Model
         'positif_label',
         'negatif_value',
         'negatif_label',
+        'description',
         'urutan',
     ];
 
